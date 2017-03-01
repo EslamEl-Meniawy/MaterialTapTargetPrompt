@@ -30,6 +30,7 @@ import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -143,10 +144,9 @@ public class MaterialTapTargetPrompt
     boolean mHorizontalTextPositionLeft;
 
     /**
-     * True: Background should be offset by 20dp as defined in guidelines.
-     * False: Background centre should be the same as the focal centre.
+     * Is the target more than 88dp from the left, right, top or bottom.
      */
-    boolean mHorizontalTextPositionCentred;
+    boolean mInside88dpBounds;
 
     /**
      * The distance between the focal edge and the displayed text.
@@ -259,14 +259,9 @@ public class MaterialTapTargetPrompt
     Layout.Alignment mSecondaryTextAlignment;
 
     /**
-     * X position that is 88dp from the left edge.
+     * Clip view bounds inset by 88dp.
      */
-    float mLeft88dp;
-
-    /**
-     * X position that is 88dp from the right edge.
-     */
-    float mRight88dp;
+    RectF mClipViewBoundsInset88dp;
 
     /**
      * 88dp pixel value.
@@ -444,8 +439,8 @@ public class MaterialTapTargetPrompt
                 {
                     mAnimationCurrent.removeAllListeners();
                     mAnimationCurrent = null;
-                    mDismissing = false;
                     cleanUpPrompt();
+                    mDismissing = false;
                 }
 
                 @TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -454,8 +449,8 @@ public class MaterialTapTargetPrompt
                 {
                     mAnimationCurrent.removeAllListeners();
                     mAnimationCurrent = null;
-                    mDismissing = false;
                     cleanUpPrompt();
+                    mDismissing = false;
                 }
             });
             mAnimationCurrent.start();
@@ -519,8 +514,8 @@ public class MaterialTapTargetPrompt
                 {
                     mAnimationCurrent.removeAllListeners();
                     mAnimationCurrent = null;
-                    mDismissing = false;
                     cleanUpPrompt();
+                    mDismissing = false;
                 }
 
                 @TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -529,8 +524,8 @@ public class MaterialTapTargetPrompt
                 {
                     mAnimationCurrent.removeAllListeners();
                     mAnimationCurrent = null;
-                    mDismissing = false;
                     cleanUpPrompt();
+                    mDismissing = false;
                 }
             });
             mAnimationCurrent.start();
@@ -548,7 +543,10 @@ public class MaterialTapTargetPrompt
     {
         removeGlobalLayoutListener();
         mParentView.removeView(mView);
-        onHidePromptComplete();
+        if (mDismissing)
+        {
+            onHidePromptComplete();
+        }
     }
 
     @TargetApi(11)
@@ -714,7 +712,7 @@ public class MaterialTapTargetPrompt
 
         mVerticalTextPositionAbove = mView.mFocalCentre.y > mView.mClipBounds.centerY();
         mHorizontalTextPositionLeft = mView.mFocalCentre.x > mView.mClipBounds.centerX();
-        mHorizontalTextPositionCentred = mView.mFocalCentre.x > mLeft88dp && mView.mFocalCentre.x < mRight88dp;
+        mInside88dpBounds = (mView.mFocalCentre.x > mClipViewBoundsInset88dp.left && mView.mFocalCentre.x < mClipViewBoundsInset88dp.right) || (mView.mFocalCentre.y > mClipViewBoundsInset88dp.top && mView.mFocalCentre.y < mClipViewBoundsInset88dp.bottom);
 
         updateTextPositioning();
         updateIconPosition();
@@ -737,37 +735,36 @@ public class MaterialTapTargetPrompt
         final float secondaryTextWidth = calculateMaxTextWidth(mView.mSecondaryTextLayout);
         final float textWidth  = Math.max(primaryTextWidth, secondaryTextWidth);
 
-        if (mHorizontalTextPositionCentred)
+        if (mInside88dpBounds)
         {
-            mView.mTextLeft = mView.mClipBounds.left;
+            mView.mPrimaryTextLeft = mView.mClipBounds.left;
             final float width = Math.min(textWidth, maxWidth);
             if (mHorizontalTextPositionLeft)
             {
-                mView.mTextLeft = mView.mFocalCentre.x - (width / 2) + m20dp;
+                mView.mPrimaryTextLeft = mView.mFocalCentre.x - width + m20dp;
             }
             else
             {
-                mView.mTextLeft = mView.mFocalCentre.x - (width / 2) - m20dp;
+                mView.mPrimaryTextLeft = mView.mFocalCentre.x - width - m20dp;
             }
-            if (mView.mTextLeft < mView.mClipBounds.left + mTextPadding)
+            if (mView.mPrimaryTextLeft < mView.mClipBounds.left + mTextPadding)
             {
-                mView.mTextLeft = mView.mClipBounds.left + mTextPadding;
+                mView.mPrimaryTextLeft = mView.mClipBounds.left + mTextPadding;
             }
-            else if (mView.mTextLeft + width > mView.mClipBounds.right - mTextPadding)
+            else if (mView.mPrimaryTextLeft + width > mView.mClipBounds.right - mTextPadding)
             {
-                mView.mTextLeft = mView.mClipBounds.right - mTextPadding - width;
+                mView.mPrimaryTextLeft = mView.mClipBounds.right - mTextPadding - width;
             }
         }
         else
         {
             if (mHorizontalTextPositionLeft)
             {
-                mView.mTextLeft = (mView.mClipToBounds ? mView.mClipBounds.right : mParentView.getRight()) - mTextPadding - textWidth;
-
+                mView.mPrimaryTextLeft = (mView.mClipToBounds ? mView.mClipBounds.right : mParentView.getRight()) - mTextPadding - textWidth;
             }
             else
             {
-                mView.mTextLeft = (mView.mClipToBounds ? mView.mClipBounds.left : mParentView.getLeft()) + mTextPadding;
+                mView.mPrimaryTextLeft = (mView.mClipToBounds ? mView.mClipBounds.left : mParentView.getLeft()) + mTextPadding;
             }
         }
 
@@ -792,6 +789,20 @@ public class MaterialTapTargetPrompt
         }
 
         updateBackgroundRadius(textWidth);
+
+        mView.mSecondaryTextLeft = mView.mPrimaryTextLeft;
+        if (mInside88dpBounds)
+        {
+            final float change = maxWidth - textWidth;
+            if (mPrimaryTextAlignment == Layout.Alignment.ALIGN_OPPOSITE)
+            {
+                mView.mPrimaryTextLeft -= change;
+            }
+            if (mSecondaryTextAlignment == Layout.Alignment.ALIGN_OPPOSITE)
+            {
+                mView.mSecondaryTextLeft -= change;
+            }
+        }
     }
 
     /**
@@ -847,49 +858,43 @@ public class MaterialTapTargetPrompt
     void updateBackgroundRadius(final float maxTextWidth)
     {
         final float length = maxTextWidth + mTextPadding;
-        if (mHorizontalTextPositionCentred)
+        if (mInside88dpBounds)
         {
-            final float x1 = mView.mFocalCentre.x + (mHorizontalTextPositionLeft ? -m20dp : m20dp);
-            final float y1,x2, y2;
+            final float x1 = mView.mFocalCentre.x;
+            float y1,x2, y2;
             if (mVerticalTextPositionAbove)
             {
-                y1 = mView.mFocalCentre.y + mBaseFocalRadius + mTextPadding;
-
+                y1 = mView.mFocalCentre.y + mBaseFocalRadius + m20dp + mTextPadding;
                 y2 = mView.mPrimaryTextTop;
-                x2 = mView.mTextLeft - mTextPadding;
+                x2 = mView.mPrimaryTextLeft - mTextPadding;
             }
             else
             {
-                y1 = mView.mFocalCentre.y - mBaseFocalRadius - mTextPadding;
-
+                y1 = mView.mFocalCentre.y - (mBaseFocalRadius + m20dp + mTextPadding);
                 float baseY2 = mView.mPrimaryTextTop + mView.mPrimaryTextLayout.getHeight();
                 if (mView.mSecondaryTextLayout != null)
                 {
                     baseY2 += mView.mSecondaryTextLayout.getHeight() + mView.mTextSeparation;
                 }
                 y2 = baseY2;
-                x2 = mView.mTextLeft - mTextPadding;
+                x2 = mView.mPrimaryTextLeft - mTextPadding;
             }
+
             final float y3 = y2;
             final float x3 = x2 + maxTextWidth + mTextPadding + mTextPadding;
-
             final double offset = Math.pow(x2,2) + Math.pow(y2,2);
             final double bc = (Math.pow(x1,2) + Math.pow(y1,2) - offset )/2.0;
             final double cd = (offset - Math.pow(x3, 2) - Math.pow(y3, 2))/2.0;
             final double det = (x1 - x2) * (y2 - y3) - (x2 - x3)* (y1 - y2);
-
             final double idet = 1/det;
-
             mBaseBackgroundPosition.set((float) ((bc * (y2 - y3) - cd * (y1 - y2)) * idet),
                                                 (float) ((cd * (x1 - x2) - bc * (x2 - x3)) * idet));
             mBaseBackgroundRadius = (float) Math.sqrt(Math.pow(x2 - mBaseBackgroundPosition.x, 2)
-                                                    + Math.pow(y2 - mBaseBackgroundPosition.y, 2));
-            mView.mBackgroundPosition.set(mBaseBackgroundPosition);
+                            + Math.pow(y2 - mBaseBackgroundPosition.y, 2));
         }
         else
         {
             mBaseBackgroundPosition.set(mView.mFocalCentre.x, mView.mFocalCentre.y);
-            mView.mBackgroundPosition.set(mBaseBackgroundPosition);
             float height = mBaseFocalRadius + mFocalToTextPadding + mTextPadding
                     + mView.mPrimaryTextLayout.getHeight();
             //Check if secondary text should be included with text separation
@@ -899,6 +904,7 @@ public class MaterialTapTargetPrompt
             }
             mBaseBackgroundRadius = (float) Math.sqrt(Math.pow(length, 2) + Math.pow(height, 2));
         }
+        mView.mBackgroundPosition.set(mBaseBackgroundPosition);
         mView.mBackgroundRadius = mBaseBackgroundRadius * mRevealedAmount;
     }
 
@@ -939,8 +945,8 @@ public class MaterialTapTargetPrompt
                 mView.mClipBounds.top += mStatusBarHeight;
             }
 
-            mLeft88dp = mView.mClipBounds.left + m88dp;
-            mRight88dp = mView.mClipBounds.right - m88dp;
+            mClipViewBoundsInset88dp = new RectF(mView.mClipBounds);
+            mClipViewBoundsInset88dp.inset(m88dp,  m88dp);
         }
         else
         {
@@ -948,8 +954,8 @@ public class MaterialTapTargetPrompt
             if (contentView != null)
             {
                 contentView.getGlobalVisibleRect(mView.mClipBounds, new Point());
-                mLeft88dp = mView.mClipBounds.left + m88dp;
-                mRight88dp = mView.mClipBounds.right - m88dp;
+                mClipViewBoundsInset88dp = new RectF(mView.mClipBounds);
+                mClipViewBoundsInset88dp.inset(m88dp,  m88dp);
             }
             mView.mClipToBounds = false;
         }
@@ -985,8 +991,9 @@ public class MaterialTapTargetPrompt
         Drawable mIconDrawable;
         float mIconDrawableLeft;
         float mIconDrawableTop;
-        float mTextLeft;
+        float mPrimaryTextLeft;
         float mPrimaryTextTop;
+        float mSecondaryTextLeft;
         float mSecondaryTextOffsetTop;
         Layout mPrimaryTextLayout;
         Layout mSecondaryTextLayout;
@@ -1007,45 +1014,51 @@ public class MaterialTapTargetPrompt
         @Override
         public void onDraw(final Canvas canvas)
         {
-            if (mClipToBounds)
+            if (this.mBackgroundRadius > 0)
             {
-                canvas.clipRect(mClipBounds);
-            }
+                if (mClipToBounds)
+                {
+                    canvas.clipRect(mClipBounds);
+                }
 
-            //Draw the backgrounds
-            canvas.drawCircle(mBackgroundPosition.x, mBackgroundPosition.y, mBackgroundRadius, mPaintBackground);
-            //Draw the ripple
-            if (mDrawRipple)
-            {
-                final int oldAlpha = mPaintFocal.getAlpha();
-                mPaintFocal.setAlpha(mFocalRippleAlpha);
-                canvas.drawCircle(mFocalCentre.x, mFocalCentre.y, mFocalRippleSize, mPaintFocal);
-                mPaintFocal.setAlpha(oldAlpha);
-            }
-            //Draw the focal
-            canvas.drawCircle(mFocalCentre.x, mFocalCentre.y, mFocalRadius, mPaintFocal);
+                //Draw the backgrounds
+                canvas.drawCircle(mBackgroundPosition.x, mBackgroundPosition.y, mBackgroundRadius, mPaintBackground);
+                //Draw the ripple
+                if (mDrawRipple)
+                {
+                    final int oldAlpha = mPaintFocal.getAlpha();
+                    mPaintFocal.setAlpha(mFocalRippleAlpha);
+                    canvas.drawCircle(mFocalCentre.x, mFocalCentre.y, mFocalRippleSize, mPaintFocal);
+                    mPaintFocal.setAlpha(oldAlpha);
+                }
+                //Draw the focal
+                canvas.drawCircle(mFocalCentre.x, mFocalCentre.y, mFocalRadius, mPaintFocal);
 
-            //Draw the icon
-            if (mIconDrawable != null)
-            {
-                canvas.translate(mIconDrawableLeft, mIconDrawableTop);
-                mIconDrawable.draw(canvas);
-                canvas.translate(-mIconDrawableLeft, -mIconDrawableTop);
-            }
-            else if (mTargetRenderView != null)
-            {
-                canvas.translate(mIconDrawableLeft, mIconDrawableTop);
-                mTargetRenderView.draw(canvas);
-                canvas.translate(-mIconDrawableLeft, -mIconDrawableTop);
-            }
+                //Draw the icon
+                if (mIconDrawable != null)
+                {
+                    canvas.translate(mIconDrawableLeft, mIconDrawableTop);
+                    mIconDrawable.draw(canvas);
+                    canvas.translate(-mIconDrawableLeft, -mIconDrawableTop);
+                }
+                else if (mTargetRenderView != null)
+                {
+                    canvas.translate(mIconDrawableLeft, mIconDrawableTop);
+                    mTargetRenderView.draw(canvas);
+                    canvas.translate(-mIconDrawableLeft, -mIconDrawableTop);
+                }
 
-            //Draw the text
-            canvas.translate(mTextLeft, mPrimaryTextTop);
-            mPrimaryTextLayout.draw(canvas);
-            if (mSecondaryTextLayout != null)
-            {
-                canvas.translate(0f, mSecondaryTextOffsetTop);
-                mSecondaryTextLayout.draw(canvas);
+                //Draw the text
+                canvas.translate(mPrimaryTextLeft, mPrimaryTextTop);
+                if (mPrimaryTextLayout != null)
+                {
+                    mPrimaryTextLayout.draw(canvas);
+                }
+                if (mSecondaryTextLayout != null)
+                {
+                    canvas.translate(-mPrimaryTextLeft + mSecondaryTextLeft, mSecondaryTextOffsetTop);
+                    mSecondaryTextLayout.draw(canvas);
+                }
             }
         }
 
@@ -1266,7 +1279,7 @@ public class MaterialTapTargetPrompt
         public Builder setTarget(final View target)
         {
             mTargetView = target;
-            mTargetSet = true;
+            mTargetSet = mTargetView != null;
             return this;
         }
 
